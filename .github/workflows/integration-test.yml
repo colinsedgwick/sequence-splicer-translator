@@ -1,0 +1,27 @@
+name: Integration tests with pytest
+on: [push]
+
+jobs:
+  integration-tests-with-pytest:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out repo
+      uses: actions/checkout@v4
+
+    - name: Start containers
+      run: docker compose up --build -d
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.12"
+
+    - name: Install dependencies
+      run: pip3 install pytest==9.0.* requests==2.*
+
+    - name: Run pytest
+      run: pytest
+
+    - name: Stop images and clean up
+      run: docker compose down
