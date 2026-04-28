@@ -1,0 +1,2 @@
+biopython==1.86
+dash==4.1.0
