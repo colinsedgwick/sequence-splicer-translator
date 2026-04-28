@@ -17,12 +17,12 @@ Using ``` -v $PWD:/data``` in you docker run command allows you to mount the inp
 Running the containerized code without specifying the user will cause the owner of all generated output files to be root, which can cause permission issues. You can specify the user and group ID namespace to yours using ``` -u $(id -u):$(id -g)``` in your docker run command.  
 ## Scripts  
 ### sequence_processor.py  
-The ```sequence_processor.py``` script is used to process an input sequence string or sequence from a FASTA file using input exon coordinates to print the mature mRNA sequence. It takes command-line input loglevel (using ```-l```), sequence string (```-t```) or FASTA file path (```-f```), and exon coordinates (```-e```). Exon coordinates have the following format: "exon1_StartPos,exon1_EndPos;exon2_StartPos,exon2_EndPos;..."  
+The ```sequence_processor.py``` script is used to process an input sequence string or sequence from a FASTA file using input exon and coding sequence coordinates to print the mature mRNA sequence and protein sequence. It takes command-line input loglevel (using ```-l```), sequence string (```-t```) or FASTA file path (```-f```), exon coordinates (```-e```), and coding sequence coordinates (```-c```). Exon coordinates have the following format: "exon1_StartPos,exon1_EndPos;exon2_StartPos,exon2_EndPos;...". Coding sequence coordinates have the following format: "StartPos,EndPos". 
 Example command using input sequence string:  
 ```bash
-docker run --rm -v $PWD:/data -u $(id -u):$(id -g) colinsedgwick/sequence-splicer-translator:1.0 sequence_processor.py -l INFO -t ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG -e "1,12;21,39"
+docker run --rm -v $PWD:/data -u $(id -u):$(id -g) colinsedgwick/sequence-splicer-translator:1.0 sequence_processor.py -l INFO -t ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG -e "1,12;21,39" -c "4,15"
 ```  
 Example command using input FASTA file:  
 ```bash
-docker run --rm -v $PWD:/data -u $(id -u):$(id -g) colinsedgwick/sequence-splicer-translator:1.0 sequence_processor.py -l INFO -f /data/example_seq.fasta -e "1,12;21,39"
+docker run --rm -v $PWD:/data -u $(id -u):$(id -g) colinsedgwick/sequence-splicer-translator:1.0 sequence_processor.py -l INFO -f /data/example_seq.fasta -e "1,12;21,39" -c "4,15"
 ```  
