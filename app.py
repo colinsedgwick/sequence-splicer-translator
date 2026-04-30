@@ -35,14 +35,14 @@ app.layout = dbc.Container([
                 placeholder='e.g., ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG',
                 className="mb-2"
             ),
-            dbc.Label("Enter Exon Coordinates with format: \"exon1_StartPos,exon1_EndPos;exon2_StartPos,exon2_EndPos\"", className="fw-bold"),
+            dbc.Label("Enter Exon Coordinates with format: \"exon1StartPos,exon1EndPos;exon2StartPos,exon2EndPos;...\"", className="fw-bold"),
             dbc.Input(
                 id='ex-input',
                 type='text',
                 placeholder='e.g., 1,12;21,39',
                 className="mb-2"
             ),
-            dbc.Label("Enter Coding Sequence Coordinates with format: \"CDS_StartPos,CDS_EndPos\"", className="fw-bold"),
+            dbc.Label("Enter Coding Sequence Coordinates with format: \"cdsStartPos,cdsEndPos\"", className="fw-bold"),
             dbc.Input(
                 id='cds-input',
                 type='text',
@@ -57,7 +57,7 @@ app.layout = dbc.Container([
         ], width=2),
 
         dbc.Col([
-            html.Div(className="my-4"),
+            html.Div(className="mt-4"),
             dcc.Upload(
                 id='upload-fasta',
                 children=dbc.Button('Or Upload a DNA Sequence Fasta File')
@@ -71,10 +71,7 @@ app.layout = dbc.Container([
             html.Pre(
                 id='mrna-output',
                 className="bg-light p-3 border rounded",
-                style={
-                    "whiteSpace": "pre-wrap",
-                    "wordBreak": "break-word"
-                }
+                style={"whiteSpace": "pre-wrap","overflow-wrap":"break-word"}
             ),
             
             dbc.Button("Download mRNA FASTA file", id='btn-download-mrna'),
@@ -87,10 +84,7 @@ app.layout = dbc.Container([
             html.Pre(
                 id='protein-output',
                 className="bg-light p-3 border rounded",
-                style={
-                    "whiteSpace": "pre-wrap",
-                    "wordBreak": "break-word"
-                }
+                style={"whiteSpace": "pre-wrap","overflow-wrap":"break-word"}
             ),
              
             dbc.Button("Download protein FASTA file", id='btn-download-protein'),
@@ -168,7 +162,6 @@ def process_sequence(process_clicks, reset_clicks, fasta_contents, dna_sequence,
             "",
             dbc.Alert("Please enter/upload valid DNA sequence and coordinates values.", color="warning")
         )
-    
 
     try:
         # process sequence and coordinates with sequence_processor module
@@ -189,8 +182,7 @@ def process_sequence(process_clicks, reset_clicks, fasta_contents, dna_sequence,
         return (
             None,
             None,
-            "Invalid input. Please check your sequence and coordinate positions."
-
+            dbc.Alert("Please enter/upload valid DNA sequence and coordinates values.", color="warning")
         )
 
     # handles all other exceptions not handled in sequence_processor module
@@ -233,8 +225,6 @@ def parse_uploaded_fasta(contents: str) -> str:
     # join the sequence fragments from the list into one string that is returned
     return "".join(sequence_lines).upper()
     
-
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8050, debug=True)
