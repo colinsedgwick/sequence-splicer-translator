@@ -1,7 +1,7 @@
 # Sequence Splicer and Translator Project  
 This project contains the code necessary to generate a dashboard tool that allows users to analyze how the splicing of a gene affects the resulting mature mRNA transcript and protein sequence. The dashboard tool works by taking an input gene sequence (either through textbox or FASTA file), exon coordinates, and coding sequence coordinates to produce a mature mRNA sequence and translated protein sequence. These mRNA and protein sequences are displayed to the dashboard and made available to download as FASTA sequences. The dashboard also allows you to save jobs to a table that is maintained between sessions using Redis.  
-!(https://drive.google.com/file/d/1VzRCGs2A47IyYMUD_PFWWF-Yreaok1lo/view?usp=sharing)
-!(https://drive.google.com/file/d/14G-nHbBepFebi2uicee699enqEZ7po9i/view?usp=sharing)
+![sequence processing](https://drive.google.com/file/d/1VzRCGs2A47IyYMUD_PFWWF-Yreaok1lo/view?usp=sharing)  
+![saving and looking at previous sequences](https://drive.google.com/file/d/14G-nHbBepFebi2uicee699enqEZ7po9i/view?usp=sharing)  
 ## Launching the Dashboard  
 While the necessary files are in your working directory, run the command ```make compose``` to close any containers running the dash app and Redis and relaunch them. ```make compose-down``` can be used to close the containers running the dash app and Redis.  
 ## Using the Dashboard  
