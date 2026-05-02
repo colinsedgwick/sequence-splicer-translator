@@ -1,12 +1,22 @@
 ---
 services:
+    redis-db:
+        image: redis:8.6.0
+        ports: 
+            - "6379:6379"
+        volumes: 
+            - ./redis-data:/data
+        user: "1000:1000"
+        command: redis-server --appendonly yes --appendfsync everysec
     dash:
         build:
             context: ./
             dockerfile: ./Dockerfile
-        image: colinsedgwick/sequence-splicer-translator:0.1.0
+        image: colinsedgwick/sequence-splicer-translator:1.0.0
         user: "1000:1000"
         ports: 
           - "8050:8050"
+        depends_on:
+          - redis-db
         command:
             "python3 app.py"

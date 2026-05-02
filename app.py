@@ -1,24 +1,18 @@
-#from dash import Dash, html, dcc, callback, Input, Output
-#import dash_bootstrap_components as dbc
 import sequence_processor as seqpr
-
-
-#import os
-#from collections import Counter
-
-#import dash_bio as dashbio
+from dash import Dash, Input, Output, State, callback, ctx, dcc, html, no_update
+import dash_ag_grid as dag
 import dash_bootstrap_components as dbc
-#import plotly.express as px
-#from Bio.PDB import PDBList, PDBParser, parse_pdb_header
-from dash import Dash, Input, Output, State, callback, ctx, dcc, html
-#from dash_bio.utils import PdbParser as DashPdbParser
-#from dash_bio.utils import create_mol3d_style
 import base64
+import redis
+import json
 
 
 # Initialize the Dash app
 external_stylesheets = [dbc.themes.CERULEAN]
 app = Dash(__name__, external_stylesheets=external_stylesheets)
+
+# set up redis client using redis container 
+rd=redis.Redis(host="redis-db",port=6379,db=0,decode_responses=True)
 
 
 app.layout = dbc.Container([
@@ -33,24 +27,27 @@ app.layout = dbc.Container([
                 id='seq-input',
                 type='text',
                 placeholder='e.g., ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG',
-                className="mb-2"
+                className="mb-2",
+                disabled=False
             ),
             dbc.Label("Enter Exon Coordinates with format: \"exon1StartPos,exon1EndPos;exon2StartPos,exon2EndPos;...\"", className="fw-bold"),
             dbc.Input(
                 id='ex-input',
                 type='text',
                 placeholder='e.g., 1,12;21,39',
-                className="mb-2"
+                className="mb-2",
+                disabled=False
             ),
             dbc.Label("Enter Coding Sequence Coordinates with format: \"cdsStartPos,cdsEndPos\"", className="fw-bold"),
             dbc.Input(
                 id='cds-input',
                 type='text',
                 placeholder='e.g., 4,15',
-                className="mb-2"
+                className="mb-2",
+                disabled=False
             ),
             dbc.Row([
-                dbc.Col(dbc.Button("Process Sequence", id='process-button', color="primary"), width="auto"),
+                dbc.Col(dbc.Button("Process Sequence", id='process-button', color="primary",disabled=False), width="auto"),
                 dbc.Col(dbc.Button("Reset", id='reset-button', color="danger"), width="auto"),
             ], className="g-2"),
             html.Div(id='status-message', className="mt-3")
@@ -60,40 +57,139 @@ app.layout = dbc.Container([
             html.Div(className="mt-4"),
             dcc.Upload(
                 id='upload-fasta',
-                children=dbc.Button('Or Upload a DNA Sequence Fasta File')
+                children=dbc.Button('Or Upload a DNA Sequence Fasta File',disabled=False)
             )
-        ], width="auto"),    
+        ], width="auto")
     ], className="mt-4"),
- 
+
     dbc.Row([
         dbc.Col([
+            html.Div(className="mt-5"),
             dbc.Label("Mature mRNA Sequence", className="fw-bold"),
             html.Pre(
                 id='mrna-output',
                 className="bg-light p-3 border rounded",
                 style={"whiteSpace": "pre-wrap","overflow-wrap":"break-word"}
             ),
-            
-            dbc.Button("Download mRNA FASTA file", id='btn-download-mrna'),
+            dbc.Button("Download mRNA FASTA file", id='btn-download-mrna',color='success'),
             dcc.Download(id='download-mrna'),  
         ]),
     ]),
+
     dbc.Row([
         dbc.Col([
+            html.Div(className="mt-4"),
             dbc.Label("Protein Sequence", className="fw-bold"),
             html.Pre(
                 id='protein-output',
                 className="bg-light p-3 border rounded",
                 style={"whiteSpace": "pre-wrap","overflow-wrap":"break-word"}
             ),
-             
-            dbc.Button("Download protein FASTA file", id='btn-download-protein'),
+            dbc.Button("Download protein FASTA file", id='btn-download-protein', color='success'),
             dcc.Download(id='download-protein'),
-            
         ])
     ]),
 
+    dbc.Row([
+        html.Div(className="mt-5"),
+        dbc.Col(dbc.Button("Save Data to Table", id='save-button', color='success'),width="auto"),
+        dbc.Col(dbc.Button("Reset Table", id='reset-table-button', color="danger"), width="auto")
+    ]),
+
+    dbc.Row([
+        html.Div(className="mt-4"),
+        html.Div(
+            dag.AgGrid(
+                id='table',
+                columnDefs=[
+                    {"field":"job", "headerName":"job", "width":100},
+                    {"field":"DNA", "headerName":"DNA","tooltipField":"DNA", "width": 300},
+                    {"field":"exon Coords","headerName":"exon Coords","tooltipField":"exon Coords","width": 200},
+                    {"field":"CDS Coords","headerName":"CDS Coords","tooltipField":"CDS Coords","width": 200},
+                    {"field":"mRNA","headerName":"mRNA","tooltipField":"mRNA","width": 300},
+                    {"field":"protein","headerName":"protein","tooltipField":"protein","width": 300}
+                ],
+                rowData=[],
+                style={"height": "310px", "width": "100%"},
+                dashGridOptions = {'rowSelection': {'mode': 'singleRow'}, 'pagination':True,'paginationPageSize':5, 'paginationPageSizeSelector':False}
+            )
+        )
+    ]),
+
+    dbc.Row([
+        dbc.Col([
+            html.Div(className="mt-5"),
+            dbc.Label("Selected Job", className="fw-bold"),
+            html.Pre(
+                id="show-row-data",
+                children="",
+                className="bg-light p-3 border rounded",
+                style={"whiteSpace": "pre-wrap","overflow-wrap":"break-word"})
+        ])
+    ])
 ], fluid=True)
+
+
+# callback function that shows selected row data in expanded format
+@callback(
+    Output('show-row-data', 'children'),
+    Input('table', 'selectedRows'),
+    prevent_initial_call=True
+)
+def show_row_data(selected_row_list):
+    selected_row=selected_row_list[0]
+    row_data = f"job: {selected_row["job"]}\n\nDNA Sequence:\n{selected_row["DNA"]}\n\nExon Coordinates:\n{selected_row["exon Coords"]}\n\nCDS Coordinates:\n{selected_row["CDS Coords"]}\n\nmRNA Sequence:\n{selected_row["mRNA"]}\n\nProtein Sequence:\n{selected_row["protein"]}"
+    return row_data
+
+
+# callback function that updates table with saved data upon opening dashboard and updates saved data and table upon clicking save data button;
+# also allows reset of saved redis data and table data upon clicking reset table button
+@callback(
+    Output('table', 'rowData'),
+    Input('save-button', 'n_clicks'),
+    Input('reset-table-button', 'n_clicks'),
+    State('upload-fasta', 'contents'),
+    State('seq-input', 'value'),
+    State('ex-input', 'value'),
+    State('cds-input', 'value'),
+    State('mrna-output', 'children'),
+    State('protein-output', 'children'),
+    State('table','rowData'),
+    prevent_initial_call=False
+)
+def update_table(save_clicks, reset_table_clicks, fasta_contents, dna_text, exon_string, cds_string,mrna_seq,protein_seq,table_data):
+    # resets redis database and clears table upon clicking reset table button
+    if ctx.triggered_id=="reset-table-button":
+        rd.flushdb()
+        table_data=[]
+        return table_data
+    # saves data currently in input and output fields to redis database and table
+    elif ctx.triggered_id=="save-button":
+        if (dna_text or fasta_contents) and exon_string and cds_string and mrna_seq and protein_seq:
+            if dna_text:
+                dna_sequence=dna_text
+            elif fasta_contents:
+                dna_sequence=parse_uploaded_fasta(fasta_contents)
+            if table_data:
+                last_job = max([int(key) for key in rd.keys()])
+            else:
+                last_job = 0
+                table_data=[]
+            entry = {"job":last_job+1,"DNA":dna_sequence,"exon Coords":exon_string,"CDS Coords":cds_string,"mRNA":mrna_seq,"protein":protein_seq}
+            rd.set(str(last_job+1),json.dumps(entry))
+            table_data.append(entry)
+
+            return table_data
+    # updates table with saved redis data upon opening dashboard
+    else:
+        saved_jobs=[]
+        if rd.keys():
+            for job in sorted([int(key) for key in rd.keys()]):
+                saved_jobs.append(json.loads(rd.get(str(job))))
+        table_data = saved_jobs
+        
+        return table_data
+
 
 # callback function that takes generated mRNA sequence and downloads it as FASTA upon download button being clicked
 @callback(
@@ -104,7 +200,11 @@ app.layout = dbc.Container([
 )
 def download_mrna(click, mrna_sequence):
 
-    return dict(content=(f">mrna_sequence\n{mrna_sequence}"), filename='output_mrna.fasta')
+    if mrna_sequence:
+        return dict(content=(f">mrna_sequence\n{mrna_sequence}"), filename='output_mrna.fasta')
+    else:
+        return no_update
+
 
 # callback funciton that takes generated protein sequence and downloads it as FASTA upon download button being clicked
 @callback(
@@ -115,15 +215,23 @@ def download_mrna(click, mrna_sequence):
 )
 def download_protein(click, protein_sequence):
 
-    return dict(content=(f">protein_sequence\n{protein_sequence}"), filename='output_protein.fasta')
+    if protein_sequence:
+        return dict(content=(f">protein_sequence\n{protein_sequence}"), filename='output_protein.fasta')
+    else:
+        return no_update
 
 
 # callback function that takes sequence and coordinates inputs to process and return output sequences when 
-# process button is clicked
+# process button is clicked; also resets mRNA and protein output fields when reset button is clicked
 @callback(
     [Output('protein-output', 'children'),
     Output('mrna-output', 'children'),
-    Output('status-message', 'children')],
+    Output('status-message', 'children'),
+    Output('process-button', 'disabled'),
+    Output('upload-fasta', 'disabled'),
+    Output('seq-input', 'disabled'),
+    Output('ex-input','disabled'),
+    Output('cds-input','disabled')],
     Input('process-button', 'n_clicks'),
     Input('reset-button', 'n_clicks'),
     State('upload-fasta', 'contents'),
@@ -134,12 +242,17 @@ def download_protein(click, protein_sequence):
 )
 def process_sequence(process_clicks, reset_clicks, fasta_contents, dna_sequence, exon_string, cds_string):
     
-    # if reset button is clicked, resets all previously output sequences
+    # if reset button is clicked, resets all previously output sequences and enables input text and buttons
     if ctx.triggered_id == 'reset-button':
         return (
-            None,
-            None,
-            None
+            "",
+            "",
+            "",
+            False,
+            False,
+            False,
+            False,
+            False
         )
     
     # check if inputs are present
@@ -154,13 +267,23 @@ def process_sequence(process_clicks, reset_clicks, fasta_contents, dna_sequence,
             return (
             "",
             "",
-            dbc.Alert("Please upload valid FASTA with single DNA sequence.", color="warning")
+            dbc.Alert("Please upload valid FASTA with single DNA sequence.", color="warning"),
+            no_update,
+            no_update,
+            no_update,
+            no_update,
+            no_update
         )   
     else:
         return (
             "",
             "",
-            dbc.Alert("Please enter/upload valid DNA sequence and coordinates values.", color="warning")
+            dbc.Alert("Please enter/upload valid DNA sequence and coordinates values.", color="warning"),
+            no_update,
+            no_update,
+            no_update,
+            no_update,
+            no_update
         )
 
     try:
@@ -170,27 +293,41 @@ def process_sequence(process_clicks, reset_clicks, fasta_contents, dna_sequence,
         cds_positions = seqpr.cds_pos_to_tuple(cds_string)
         protein_sequence = seqpr.mrna_translator(mature_mrna, cds_positions)
 
+        # if successfully processed, outputs mRNA and protein sequences and disables input text and buttons (prevents changing and saving input data that does not correspond to output data)
         return (f"{protein_sequence}",
                 f"{mature_mrna}",
-                html.Div([
-                    dbc.Alert(f"Successfully processed sequence from {input}", color='success')
-                ])
+                dbc.Alert(f"Successfully processed sequence from {input}", color='success'),
+                True,
+                True,
+                True,
+                True,
+                True
         )
 
     # uses SystemExit as exception to handle because sequence_processor module handles invalid inputs with sys.exit(1)
     except SystemExit:
         return (
-            None,
-            None,
-            dbc.Alert("Please enter/upload valid DNA sequence and coordinates values.", color="warning")
+            "",
+            "",
+            dbc.Alert("Please enter/upload valid DNA sequence and coordinates values.", color="warning"),
+            no_update,
+            no_update,
+            no_update,
+            no_update,
+            no_update
         )
 
     # handles all other exceptions not handled in sequence_processor module
     except Exception as e:
         return (
-            None,
-            None,
-            f"Error: {e}"
+            "",
+            "",
+            f"Error: {e}",
+            no_update,
+            no_update,
+            no_update,
+            no_update,
+            no_update
             )
 
 
@@ -218,7 +355,7 @@ def parse_uploaded_fasta(contents: str) -> str:
         elif line.strip() and not line.startswith(">"):
             sequence_lines.append(line.strip())
 
-    # if there is more or less than one sequnence in the file, raises exception
+    # if there is more or less than one sequence in the file, raises exception
     if sequence_counter != 1:
         raise Exception
     
